@@ -53,6 +53,8 @@ def main():
         namelist = CGILS_S12(is_p2, is_ctl_omega)
     elif case_name == 'ZGILS':
         namelist = ZGILS(zgils_loc)
+    elif case_name == 'Tenstr':
+        namelist = Tenstr(zgils_loc)
     else:
         print('Not a vaild case name')
         exit()
@@ -110,6 +112,7 @@ def SullivanPatton():
     namelist['damping']['Rayleigh'] = {}
     namelist['damping']['Rayleigh']['gamma_r'] = 0.02
     namelist['damping']['Rayleigh']['z_d'] = 500.0
+
 
     namelist['output'] = {}
     namelist['output']['output_root'] = './'
@@ -378,9 +381,6 @@ def Bomex():
     namelist['meta'] = {}
     namelist['meta']['simname'] = 'Bomex'
     namelist['meta']['casename'] = 'Bomex'
-
-    namelist['initialization'] = {}
-    namelist['initialization']['random_seed_factor'] = 1
 
     return namelist
 
@@ -1308,6 +1308,134 @@ def ZGILS(zgils_loc):
 
 
     return namelist
+
+
+def Tenstr(zgils_loc):
+    
+    namelist = {}
+    
+    namelist['grid'] = {}
+    namelist['grid']['dims'] = 3
+    namelist['grid']['nx'] = 86
+    namelist['grid']['ny'] = 86
+    namelist['grid']['nz'] = 216
+    namelist['grid']['gw'] = 4
+    namelist['grid']['dx'] = 75.0
+    namelist['grid']['dy'] = 75.0
+    namelist['grid']['dz'] = 20.0
+    
+    namelist['mpi'] = {}
+    namelist['mpi']['nprocx'] = 1
+    namelist['mpi']['nprocy'] = 1
+    namelist['mpi']['nprocz'] = 1
+    
+    namelist['time_stepping'] = {}
+    namelist['time_stepping']['ts_type'] = 3
+    namelist['time_stepping']['cfl_limit'] = 0.7
+    namelist['time_stepping']['dt_initial'] = 1.0
+    namelist['time_stepping']['dt_max'] = 10.0
+    namelist['time_stepping']['t_max'] = 3600.0*24.0*20.0 # 20 days
+    
+    namelist['thermodynamics'] = {}
+    namelist['thermodynamics']['latentheat'] = 'variable'
+    
+    
+    namelist['damping'] = {}
+    namelist['damping']['scheme'] = 'Rayleigh'
+    namelist['damping']['Rayleigh'] = {}
+    namelist['damping']['Rayleigh']['gamma_r'] = 0.2
+    namelist['damping']['Rayleigh']['z_d'] = 500.0
+    
+    namelist['microphysics'] = {}
+    namelist['microphysics']['phase_partitioning'] = 'liquid_only'
+    namelist['microphysics']['cloud_sedimentation'] = True
+    namelist['microphysics']['ccn'] = 100.0e6
+    namelist['microphysics']['scheme'] = 'SB_Liquid'
+    namelist['microphysics']['SB_Liquid'] = {}
+    namelist['microphysics']['SB_Liquid']['nu_droplet'] = 0
+    namelist['microphysics']['SB_Liquid']['mu_rain'] = 1
+    
+    
+    
+    namelist['sgs'] = {}
+    namelist['sgs']['scheme'] = 'Smagorinsky'
+    namelist['sgs']['Smagorinsky'] ={}
+    namelist['sgs']['Smagorinsky']['iles'] = False
+    
+    
+    namelist['diffusion'] = {}
+    namelist['diffusion']['qt_entropy_source'] = False
+    
+    namelist['momentum_transport'] = {}
+    namelist['momentum_transport']['order'] = 5
+    
+    namelist['scalar_transport'] = {}
+    namelist['scalar_transport']['order'] = 5
+    namelist['scalar_transport']['order_sedimentation'] = 1
+    
+    namelist['surface_budget'] = {}
+    if zgils_loc == 12:
+        namelist['surface_budget']['ocean_heat_flux'] = 70.0
+    elif zgils_loc == 11:
+        namelist['surface_budget']['ocean_heat_flux'] = 90.0
+    elif zgils_loc == 6:
+        namelist['surface_budget']['ocean_heat_flux'] = 60.0
+    
+    # To run a fixed_sst case set fixed_sst_time > t_max of simulation
+    namelist['surface_budget']['fixed_sst_time'] = 24.0 * 3600.0 * 30.0 # 3 days spinup
+    
+    namelist['radiation'] = {}
+    namelist['radiation']['RRTM'] = {}
+    namelist['radiation']['RRTM']['frequency'] = 90.0
+    
+    namelist['output'] = {}
+    namelist['output']['output_root'] = './'
+    
+    namelist['stats_io'] = {}
+    namelist['stats_io']['stats_dir'] = 'stats'
+    namelist['stats_io']['auxiliary'] = ['Flux']
+    namelist['stats_io']['frequency'] = 5 * 60.0
+    
+    namelist['fields_io'] = {}
+    namelist['fields_io']['fields_dir'] = 'fields'
+    namelist['fields_io']['frequency'] = 86400.0
+    namelist['fields_io']['diagnostic_fields'] = ['ql','temperature','buoyancy']
+    
+    namelist['meta'] = {}
+    #namelist['meta']['Tenstr'] = {}
+    namelist['meta']['ZGILS'] = {}
+    #namelist['meta']['casename'] = 'Tenstr'
+    namelist['meta']['casename'] = 'ZGILS'
+    #namelist['meta']['Tenstr']['location'] = zgils_loc
+    namelist['meta']['ZGILS']['location'] = zgils_loc
+    
+    
+    #simname = 'Tenstr_S' + str(namelist['meta']['Tenstr']['location'] )
+    simname = 'Tenstr_S' + str(namelist['meta']['ZGILS']['location'] )
+    namelist['meta']['simname'] = simname
+    
+    
+    
+    namelist['restart'] = {}
+    namelist['restart']['output'] = True
+    namelist['restart']['init_from'] = False
+    namelist['restart']['input_path'] = './'
+    namelist['restart']['frequency'] = 600.0
+    namelist['restart']['delete_old'] = True
+    namelist['restart']['times_retained'] = range(86400, 86400*21, 86400)
+    
+    namelist['conditional_stats'] ={}
+    namelist['conditional_stats']['classes'] = ['Spectra']
+    namelist['conditional_stats']['frequency'] = 43200.0
+    namelist['conditional_stats']['stats_dir'] = 'cond_stats'
+    
+    
+    return namelist
+
+
+
+
+
 
 
 def write_file(namelist):

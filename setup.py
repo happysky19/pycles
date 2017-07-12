@@ -14,6 +14,11 @@ import string
 include_path = [mpi4py.get_include()]
 include_path += [np.get_include()]
 include_path += ['./Csrc']
+include_path += ['/home/thl/petsc/include/petsc/finclude']
+include_path += ['/home/thl/petsc/include/petsc/private']
+include_path += ['/home/thl/petsc/fast_double/include']
+include_path += ['/home/thl/petsc/include']
+include_path += ['/home/thl/petsc/include/petsc']
 
 if sys.platform == 'darwin':
     #Compile flags for MacOSX
@@ -43,16 +48,32 @@ elif 'euler' in platform.node():
 elif platform.machine()  == 'x86_64':
     #Compile flags for fram @ Caltech
     library_dirs = string.split(os.environ['LD_LIBRARY_PATH'],':')  
+    library_dirs.append('/home/thl/tenstream/build/lib')
+    library_dirs.append('/home/thl/petsc/fast_double/lib')
+    library_dirs.append('/home/thl/pycles-test/Tenstream/tenstream_build') 
+    print "include path: ", include_path
+    #print library_dirs 
     libraries = []
     libraries.append('mpi')
     libraries.append('gfortran')
+    libraries.append('petsc') 
+    libraries.append('tenstream')
+    libraries.append('tenstr_rrtmg')
+    libraries.append('tenstr_rrtm_lw')
+    libraries.append('tenstr_rrtm_sw')   
+    libraries.append('netcdf') 
+    libraries.append('netcdff') 
+    libraries.append('openblas') 
+    #libraries.append('lapack') 
+    print libraries 
     extensions = []
     extra_compile_args=[]
     extra_compile_args+=['-std=c99', '-O3', '-march=native', '-Wno-unused',
                          '-Wno-#warnings', '-Wno-maybe-uninitialized', '-Wno-cpp', '-Wno-array-bounds','-fPIC']
-    extra_objects=['./RRTMG/rrtmg_build/rrtmg_combined.o']
-    netcdf_include = '/share/apps/software/rhel6/software/netCDF/4.4.0-foss-2016a/include'
-    netcdf_lib = '/share/apps/software/rhel6/software/netCDF/4.4.0-foss-2016a/lib'
+    #extra_objects=['./RRTMG/rrtmg_build/rrtmg_combined.o','./Tenstream/tenstream_build/tenstr_wrapper.o']
+    extra_objects=['./RRTMG/rrtmg_build/rrtmg_combined.o','./Tenstream/tenstr_rrtmg_combined.o']
+    netcdf_include = '/share/apps/software/rhel6/software/netCDF-Fortran/4.4.3-foss-2016a/include'
+    netcdf_lib = '/share/apps/software/rhel6/software/netCDF-Fortran/4.4.3-foss-2016a/lib'
     f_compiler = 'gfortran'
 
 else:
