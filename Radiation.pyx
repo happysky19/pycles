@@ -24,7 +24,8 @@ from libc.math cimport pow, cbrt, exp, fmin, fmax
 from thermodynamic_functions cimport cpm_c
 include 'parameters.pxi'
 from profiles import profile_data
-
+# thl
+from mpi4py.MPI cimport MPI_Comm
 
 def RadiationFactory(namelist, LatentHeat LH, ParallelMPI.ParallelMPI Pa):
     # if namelist specifies RRTM is to be used, this will override any case-specific radiation schemes
@@ -44,11 +45,12 @@ def RadiationFactory(namelist, LatentHeat LH, ParallelMPI.ParallelMPI Pa):
         elif casename == 'SMOKE':
             return RadiationSmoke()
         elif casename == 'CGILS':
-            return RadiationRRTM(namelist,LH, Pa)
+            #return RadiationRRTM(namelist,LH, Pa)
+            return RadiationTenstream(namelist, LH, Pa)
         elif casename == 'ZGILS':
             return RadiationRRTM(namelist, LH, Pa)
-        #elif casename == 'Tenstr':
-        #    return RadiationTenstr(namelist,LH,Pa)
+        elif casename == 'Tenstr':
+            return RadiationTenstream(namelist, LH, Pa)
         else:
             return RadiationNone()
 
@@ -84,8 +86,8 @@ cdef class RadiationBase:
                  Surface.SurfaceBase Sur, TimeStepping.TimeStepping TS, ParallelMPI.ParallelMPI Pa):
         return
 
-    cpdef stats_io(self, Grid.Grid Gr, DiagnosticVariables.DiagnosticVariables DV,
-                   NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+    cpdef stats_io(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+
 
         cdef:
             Py_ssize_t i
@@ -127,8 +129,8 @@ cdef class RadiationNone(RadiationBase):
                  PrognosticVariables.PrognosticVariables PV, DiagnosticVariables.DiagnosticVariables DV,
                  Surface.SurfaceBase Sur,TimeStepping.TimeStepping TS, ParallelMPI.ParallelMPI Pa):
         return
-    cpdef stats_io(self, Grid.Grid Gr, DiagnosticVariables.DiagnosticVariables DV,
-                   NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+    cpdef stats_io(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+
         return
 
 
@@ -246,10 +248,10 @@ cdef class RadiationDyCOMS_RF01(RadiationBase):
 
         return
 
-    cpdef stats_io(self, Grid.Grid Gr,  DiagnosticVariables.DiagnosticVariables DV,
-                   NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
-        RadiationBase.stats_io(self, Gr, DV, NS,  Pa)
 
+    cpdef stats_io(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+
+        RadiationBase.stats_io(self, Gr, Ref, DV, NS,  Pa)
 
         return
 
@@ -346,9 +348,9 @@ cdef class RadiationSmoke(RadiationBase):
 
         return
 
-    cpdef stats_io(self, Grid.Grid Gr,  DiagnosticVariables.DiagnosticVariables DV,
-                   NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
-        RadiationBase.stats_io(self, Gr, DV, NS,  Pa)
+    cpdef stats_io(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+
+        RadiationBase.stats_io(self, Gr, Ref, DV, NS,  Pa)
 
         return
 
@@ -772,7 +774,6 @@ cdef class RadiationRRTM(RadiationBase):
             Py_ssize_t imax = Gr.dims.nlg[0] - Gr.dims.gw
             Py_ssize_t jmax = Gr.dims.nlg[1] - Gr.dims.gw
             Py_ssize_t kmax = Gr.dims.nlg[2] - Gr.dims.gw
-
             Py_ssize_t i, j, k, ijk, ishift, jshift
             Py_ssize_t istride = Gr.dims.nlg[1] * Gr.dims.nlg[2]
             Py_ssize_t jstride = Gr.dims.nlg[2]
@@ -991,115 +992,28 @@ cdef class RadiationRRTM(RadiationBase):
 
 
         return
-    cpdef stats_io(self, Grid.Grid Gr,  DiagnosticVariables.DiagnosticVariables DV,
-                   NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
 
-        RadiationBase.stats_io(self, Gr, DV, NS,  Pa)
+    cpdef stats_io(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
 
-
+        RadiationBase.stats_io(self, Gr, Ref, DV, NS,  Pa)
 
         return
 
 
+
+
 cdef extern:
-    void c_tenstr (int *comm, int *nxp, int *nyp, int *nzp, double *dx, double *dy, double *phi0, double *theta0, double *albedo_thermal, double *albedo_solar, char *atm_filename, bool *lthermal, bool *lsolar, double *edir,double *edn,double *eup,double *abso, double *d_plev, double *d_tlev, double *d_tlay, double *d_h2ovmr, double *d_o3vmr, double *d_co2vmr, double *d_ch4vmr, double *d_n2ovmr,  double *d_o2vmr, double *d_lwc, double *d_reliq, double *d_iwc, double *d_reice, int *nxproc, int *nyproc, int *icollapse, double *opt_time, double *solar_albedo_2d)
+    void c_tenstr (MPI_Comm *comm, int *nxp, int *nyp, int *nzp, double *dx, double *dy, double *phi0, double *theta0, double *albedo_thermal, double *albedo_solar, char *atm_filename, bint *lthermal, bint *lsolar, double *edir,double *edn,double *eup,double *abso, double *d_plev, double *d_tlev, double *d_tlay, double *d_h2ovmr, double *d_o3vmr,
+double *d_co2vmr, double *d_ch4vmr, double *d_n2ovmr,  double *d_o2vmr, double *d_lwc, double *d_reliq, double *d_iwc, double *d_reice)
+#void c_tenstr (int *comm, int *nxp, int *nyp, int *nzp, double *dx, double *dy, double *phi0, double *theta0, double *albedo_thermal, double *albedo_solar, char *atm_filename, bint *lthermal, bint *lsolar, double *edir,double *edn,double *eup,double *abso, double *d_plev, double *d_tlev, double *d_tlay, double *d_h2ovmr, double *d_o3vmr,
+#    double *d_co2vmr, double *d_ch4vmr, double *d_n2ovmr,  double *d_o2vmr, double *d_lwc, double *d_reliq, double *d_iwc, double *d_reice, int *nxproc, int *nyproc, int *icollapse, double *opt_time, double *solar_albedo_2d)
+    #In pass &Pa.comm_world
 
 
-cdef class Test_Tenstr(RadiationBase):
-    cdef:
-        int nxp = 3
-        int nyp = 3
-        int nzp = 10
-        double dx=100.
-        double dy=dx
-        double phi0=180.
-        double theta0 = 60.
-        double albedo_th=0.
-        double albedo_sol=.3
-        double atolerance =1.
-        str atm_filename = "/home/thl/tenstream/examples/rrtm_lw_sw/afglus_100m.dat"
-
-
-        double[:,:,:] edir = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] edn = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] eup = np.zeros((nzp,nxp,nyp))
-
-        double[:,:,:] abso = np.zeros((nzp-1,nxp,nyp))
-        double[:,:,:] dtlay = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_h2ovmr = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_o3vmr = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_co2vmr = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_ch4vmr = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_n2ovmr = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_lwc = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_reliq = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_iwc = np.zeros((nzp,nxp,nyp))
-        double[:,:,:] d_reice = np.zeros((nzp,nxp,nyp))
-
-        double[:,:,:] d_plev = np.zeros((nzp+1,nxp,nyp))
-        double[:,:,:] d_tlev = np.zeros((nzp+1,nxp,nyp))
-
-
-        double lwc = 0.
-        double reliq = 0.
-        int icld = (nzp+1)/2
-
-        bool lthermal = False
-        bool lsolar   = True
-    for k in range(nzp+1):
-            d_plev[k,:,:] = 1000.-k*500/nzp
-            d_tlev[k,:,:] = 288.-k*500/nzp
-
-
-    lwc[icld,:,:] = 1e-2
-    reliq[icld,:,:] = 10
-
-    tlev[icld-1,:,:] = 288
-    tlev[icld,:,:] = 288
-
-    tlay = (tlev[0:nzp-1,:,:]+tlev[1:nzp:,:])/2
-
-
-    comm = 1
-
-    c_tenstr(comm, nxp, nyp, nzp, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar, edir,edn,eup,abso, d_plev, d_tlev, d_tlay, d_h2ovmr, d_o3vmr, d_co2vmr, d_ch4vmr, d_n2ovmr,  d_o2vmr, d_lwc, d_reliq, d_iwc, d_reice, nxproc, nyproc, icollapse, opt_time, solar_albedo_2d)
-
-        #print edir[0,0,0]
-
-'''
-# thl
-
-# Note: the Tenstream modules are compiled in the 'Tenstream' directory:
-cdef extern:
-    void c_rrtmg_lw_init(double *cpdair)
-    void c_rrtmg_lw (
-                    int *ncol    ,int *nlay    ,int *icld    ,int *idrv    ,
-                    double *play    ,double *plev    ,double *tlay    ,double *tlev    ,double *tsfc    ,
-                    double *h2ovmr  ,double *o3vmr   ,double *co2vmr  ,double *ch4vmr  ,double *n2ovmr  ,double *o2vmr,
-                    double *cfc11vmr,double *cfc12vmr,double *cfc22vmr,double *ccl4vmr ,double *emis    ,
-                    int *inflglw ,int *iceflglw,int *liqflglw,double *cldfr   ,
-                    double *taucld  ,double *cicewp  ,double *cliqwp  ,double *reice   ,double *reliq   ,
-                    double *tauaer  ,
-                    double *uflx    ,double *dflx    ,double *hr      ,double *uflxc   ,double *dflxc,  double *hrc,
-                    double *duflx_dt,double *duflxc_dt )
-    void c_rrtmg_sw_init(double *cpdair)
-    void c_rrtmg_sw (int *ncol    ,int *nlay    ,int *icld    ,int *iaer    ,
-                    double *play    ,double *plev    ,double *tlay    ,double *tlev    ,double *tsfc    ,
-                    double *h2ovmr  ,double *o3vmr   ,double *co2vmr  ,double *ch4vmr  ,double *n2ovmr  ,double *o2vmr,
-                    double *asdir   ,double *asdif   ,double *aldir   ,double *aldif   ,
-                    double *coszen  ,double *adjes   ,int *dyofyr  ,double *scon    ,
-                    int *inflgsw ,int *iceflgsw,int *liqflgsw,double *cldfr   ,
-                    double *taucld  ,double *ssacld  ,double *asmcld  ,double *fsfcld  ,
-                    double *cicewp  ,double *cliqwp  ,double *reice   ,double *reliq   ,
-                    double *tauaer  ,double *ssaaer  ,double *asmaer  ,double *ecaer   ,
-                    double *swuflx  ,double *swdflx  ,double *swhr    ,double *swuflxc ,double *swdflxc ,double *swhrc)
-
-    void c_tenstr()
-
-cdef class RadiationTenstr(RadiationBase):
+cdef class RadiationTenstream(RadiationBase):
 
     def __init__(self, namelist, LatentHeat LH, ParallelMPI.ParallelMPI Pa):
-''
+
 
         # Required for surface energy budget calculations, can also be used for stats io
         self.srf_lw_down = 0.0
@@ -1226,7 +1140,8 @@ cdef class RadiationTenstr(RadiationBase):
 
 
 
-    cpdef initialize_profiles(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+    cpdef initialize_profiles(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV,
+                     NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
 
 
         cdef:
@@ -1343,7 +1258,7 @@ cdef class RadiationTenstr(RadiationBase):
         self.pi_full[0:nz] = Ref.p0_global[gw:nz+gw]
         for i in range(nz,self.n_ext+nz):
             self.pi_full[i] = (self.p_full[i] + self.p_full[i-1]) * 0.5
-            self.pi_full[self.n_ext +  nz] = 2.0 * self.p_full[self.n_ext + nz -1 ] - self.pi_full[self.n_ext + nz -1]
+        self.pi_full[self.n_ext +  nz] = 2.0 * self.p_full[self.n_ext + nz -1 ] - self.pi_full[self.n_ext + nz -1]
 
         # try to get ozone
         try:
@@ -1370,8 +1285,8 @@ cdef class RadiationTenstr(RadiationBase):
         # Read in trace gas data
         lw_input_file = './RRTMG/lw/data/rrtmg_lw.nc'
         lw_gas = nc.Dataset(lw_input_file,  "r")
-	
-	lw_gas.set_auto_mask(False)
+
+        lw_gas.set_auto_mask(False)
 
         lw_pressure = np.asarray(lw_gas.variables['Pressure'])
         lw_absorber = np.asarray(lw_gas.variables['AbsorberAmountMLS'])
@@ -1463,14 +1378,17 @@ cdef class RadiationTenstr(RadiationBase):
 
 
         return
-    cpdef update(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, PrognosticVariables.PrognosticVariables PV, DiagnosticVariables.DiagnosticVariables DV, Surface.SurfaceBase Sur, TimeStepping.TimeStepping TS, ParallelMPI.ParallelMPI Pa):
+    cpdef update(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref,
+                 PrognosticVariables.PrognosticVariables PV, DiagnosticVariables.DiagnosticVariables DV,
+                 Surface.SurfaceBase Sur, TimeStepping.TimeStepping TS,
+                 ParallelMPI.ParallelMPI Pa):
 
 
         if TS.rk_step == 0:
             if self.radiation_frequency <= 0.0:
-                self.update_RRTM(Gr, Ref, PV, DV,Sur, Pa)
+                self.update_Tenstream(Gr, Ref, PV, DV,Sur, Pa)
             elif TS.t >= self.next_radiation_calculate:
-                self.update_RRTM(Gr, Ref, PV, DV, Sur, Pa)
+                self.update_Tenstream(Gr, Ref, PV, DV, Sur, Pa)
                 self.next_radiation_calculate = (TS.t//self.radiation_frequency + 1.0) * self.radiation_frequency
 
 
@@ -1508,185 +1426,203 @@ cdef class RadiationTenstr(RadiationBase):
 
         return
 
-    cdef update_RRTM(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, PrognosticVariables.PrognosticVariables PV, DiagnosticVariables.DiagnosticVariables DV, Surface.SurfaceBase Sur, ParallelMPI.ParallelMPI Pa):
+    cdef update_Tenstream(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, PrognosticVariables.PrognosticVariables PV,
+                      DiagnosticVariables.DiagnosticVariables DV, Surface.SurfaceBase Sur, ParallelMPI.ParallelMPI Pa):
+                      
+                      
         cdef:
+        
+            Py_ssize_t nx = Gr.dims.n[0]
+            Py_ssize_t ny = Gr.dims.n[1]
             Py_ssize_t nz = Gr.dims.n[2]
+
+            #horizontal grid spacing in [m]
+            double dx = 100.
+            double dy = 100.
+
+            #phi0, theta0 ! Sun's angles, azimuth phi(0=North, 90=East), zenith(0 high sun, 80=low sun)
+            double phi0 = 180.
+            double theta0 = 60.
+
+            #lw, sw flag
+            bint lthermal_lw = True
+            bint lsolar_lw   = False
+            bint lthermal_sw = False
+            bint lsolar_sw   = True
+
             Py_ssize_t nz_full = self.n_ext + nz
             Py_ssize_t n_pencils = self.z_pencil.n_local_pencils
             Py_ssize_t t_shift = DV.get_varshift(Gr, 'temperature')
             Py_ssize_t qv_shift = DV.get_varshift(Gr, 'qv')
             Py_ssize_t ql_shift = DV.get_varshift(Gr, 'ql')
-            Py_ssize_t qi_shift
-            double [:,:] t_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[t_shift])
-            double [:,:] qv_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[qv_shift])
-            double [:,:] ql_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[ql_shift])
-            double [:,:] qi_pencil = np.zeros((n_pencils,nz),dtype=np.double, order='c')
-            double [:,:] rl_full = np.zeros((n_pencils,nz_full), dtype=np.double, order='F')
-            Py_ssize_t k, ip
+            Py_ssize_t qi_shift 
+            #double [:,:] t_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[t_shift])
+            #double [:,:] qv_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[qv_shift])
+            #double [:,:] ql_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[ql_shift])
+            #double [:,:] qi_pencil = np.zeros((n_pencils,nz),dtype=np.double, order='c')
+            #double [:,:] rl_full = np.zeros((n_pencils,nz_full), dtype=np.double, order='F')
+            Py_ssize_t i, j, k, ip
             bint use_ice = False
             Py_ssize_t gw = Gr.dims.gw
 
 
         if 'qi' in DV.name_index:
             qi_shift = DV.get_varshift(Gr, 'qi')
-            qi_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[qi_shift])
+            #qi_pencil = self.z_pencil.forward_double(&Gr.dims, Pa, &DV.values[qi_shift])
             use_ice = True
 
 
+        #For now we don't need pencils.....
+        
+        
+        
 
-        # Define input arrays for RRTM
-        cdef:
-            double [:,:] play_in = np.zeros((n_pencils,nz_full), dtype=np.double, order='F')
-            double [:,:] plev_in = np.zeros((n_pencils,nz_full + 1), dtype=np.double, order='F')
-            double [:,:] tlay_in = np.zeros((n_pencils,nz_full), dtype=np.double, order='F')
-            double [:,:] tlev_in = np.zeros((n_pencils,nz_full + 1), dtype=np.double, order='F')
-            double [:] tsfc_in = np.ones((n_pencils),dtype=np.double,order='F') * Sur.T_surface
-            double [:,:] h2ovmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] o3vmr_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] co2vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] ch4vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] n2ovmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] o2vmr_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] cfc11vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] cfc12vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] cfc22vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] ccl4vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] emis_in = np.ones((n_pencils,16),dtype=np.double,order='F') * 0.95
-            double [:,:] cldfr_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] cicewp_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] cliqwp_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] reice_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:] reliq_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double [:] coszen_in = np.ones((n_pencils),dtype=np.double,order='F') *self.coszen
-            double [:] asdir_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adir
-            double [:] asdif_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adif
-            double [:] aldir_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adir
-            double [:] aldif_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adif
-            double [:,:,:] taucld_lw_in  = np.zeros((16,n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:,:] tauaer_lw_in  = np.zeros((n_pencils,nz_full,16),dtype=np.double,order='F')
-            double [:,:,:] taucld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:,:] ssacld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:,:] asmcld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:,:] fsfcld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
-            double [:,:,:] tauaer_sw_in  = np.zeros((n_pencils,nz_full,14),dtype=np.double,order='F')
-            double [:,:,:] ssaaer_sw_in  = np.zeros((n_pencils,nz_full,14),dtype=np.double,order='F')
-            double [:,:,:] asmaer_sw_in  = np.zeros((n_pencils,nz_full,14),dtype=np.double,order='F')
-            double [:,:,:] ecaer_sw_in  = np.zeros((n_pencils,nz_full,6),dtype=np.double,order='F')
+        #Layer is half level (thermo points) 
+        #level is the full level (w) 
 
-            # Output
-            double[:,:] uflx_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] dflx_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] hr_lw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double[:,:] uflxc_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] dflxc_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] hrc_lw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double[:,:] duflx_dt_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] duflxc_dt_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] uflx_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] dflx_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] hr_sw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
-            double[:,:] uflxc_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] dflxc_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
-            double[:,:] hrc_sw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+        cdef: 
+        
+            #Layer variables 
+            double [:,:,:] play_in  = np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] tlay_in  = np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] h2ovmr_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] o3vmr_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] co2vmr_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')  
+            double [:,:,:] ch4vmr_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] n2ovmr_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')  
+            double [:,:,:] o2vmr_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] rliq_in =  np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] rice_in =  np.zeros((nz_full, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] reliq_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double [:,:,:] reice_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double [:,:,:] cicewp_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double [:,:,:] cliqwp_in = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double [:,:,:] cldfr_in  = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+        
+            #Level variables 
+            double [:,:,:] tlev_in = np.zeros((nz_full+1, nx, ny), dtype=np.double, order='F') 
+            double [:,:,:] plev_in  = np.zeros((nz_full+1, nx, ny), dtype=np.double, order='F')
 
+
+            #Output
+            double[:,:,:] edir_lw = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double[:,:,:] edn_lw = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double[:,:,:] eup_lw = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double[:,:,:] abso_lw = np.zeros((nz_full-1, nx, ny), dtype=np.double, order='F')
+            double[:,:,:] edir_sw = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double[:,:,:] edn_sw = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double[:,:,:] eup_sw = np.zeros((nz_full, nx, ny), dtype=np.double, order='F')
+            double[:,:,:] abso_sw = np.zeros((nz_full-1, nx, ny), dtype=np.double, order='F')
+
+            Py_ssize_t imin = Gr.dims.gw
+            Py_ssize_t jmin = Gr.dims.gw
+            Py_ssize_t kmin = Gr.dims.gw
+
+
+            Py_ssize_t imax = Gr.dims.nlg[0] - Gr.dims.gw
+            Py_ssize_t jmax = Gr.dims.nlg[1] - Gr.dims.gw
+            Py_ssize_t kmax = Gr.dims.nlg[2] - Gr.dims.gw
+
+            Py_ssize_t ijk, ishift, jshift
+            Py_ssize_t istride = Gr.dims.nlg[1] * Gr.dims.nlg[2]
+            Py_ssize_t jstride = Gr.dims.nlg[2]
+            
             double rv_to_reff = np.exp(np.log(1.2)**2.0)*10.0*1000.0
 
-        with nogil:
-            for k in xrange(nz, nz_full):
-                for ip in xrange(n_pencils):
-                    tlay_in[ip, k] = self.t_ext[k-nz]
-                    h2ovmr_in[ip, k] = self.rv_ext[k-nz] * Rv/Rd * self.h2o_factor
-                    # Assuming for now that there is no condensate above LES domain!
-            for k in xrange(nz):
-                for ip in xrange(n_pencils):
-                    tlay_in[ip,k] = t_pencil[ip,k]
-                    h2ovmr_in[ip,k] = qv_pencil[ip,k]/ (1.0 - qv_pencil[ip,k])* Rv/Rd * self.h2o_factor
-                    rl_full[ip,k] = (ql_pencil[ip,k])/ (1.0 - qv_pencil[ip,k])
-                    cliqwp_in[ip,k] = ((ql_pencil[ip,k])/ (1.0 - qv_pencil[ip,k])*1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g)
-                    cicewp_in[ip,k] = ((qi_pencil[ip,k])/ (1.0 - qv_pencil[ip,k])*1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g)
-                    if ql_pencil[ip,k] + qi_pencil[ip,k] > ql_threshold:
-                        cldfr_in[ip,k] = 1.0
+             
+        with nogil: 
+           for k in xrange(nz, nz_full): 
+               for i in xrange(nx): 
+                   for j in xrange(ny): 
+                       play_in[k,i,j] = self.p_full[k]/100.0 
+                       tlay_in[k,i,j] = self.t_ext[k-nz] 
+                       h2ovmr_in[k,i,j] = self.rv_ext[k-nz] * Rv/Rd * self.h2o_factor
+                       
+                       #
+                       o3vmr_in[k,i,j] = self.o3vmr[k]
+                       co2vmr_in[k,i,j] = self.co2vmr[k]
+                       ch4vmr_in[k,i,j] = self.ch4vmr[k]
+                       n2ovmr_in[k,i,j] = self.n2ovmr[k]
+                       o2vmr_in[k,i,j] = self.o2vmr[k]            
+                
+           for k in xrange(nz): 
+                for i in xrange(nx): 
+                    ishift = i * istride
+                    for j in xrange(ny):
+                        jshift = j * jstride
+                        ijk = ishift + jshift + k
+                        play_in[k,i,j] = self.p_full[k]/100.0
+                        tlay_in[k,i,j] = DV.values[t_shift + ijk]       
+                        h2ovmr_in[k,i,j] = DV.values[qv_shift + ijk] / (1.0 - DV.values[qv_shift + ijk] )* Rv/Rd * self.h2o_factor
+                        
+                        o3vmr_in[k,i,j] = self.o3vmr[k]
+                        co2vmr_in[k,i,j] = self.co2vmr[k]
+                        ch4vmr_in[k,i,j] = self.ch4vmr[k]
+                        n2ovmr_in[k,i,j] = self.n2ovmr[k]
+                        o2vmr_in[k,i,j] = self.o2vmr[k]
+
+                        rliq_in[k,i,j] = (DV.values[ql_shift + ijk])/ (1.0 - DV.values[qv_shift + ijk])
+                        rice_in[k,i,j] = (DV.values[qi_shift + ijk])/ (1.0 - DV.values[qv_shift + ijk])
+                        cliqwp_in[k,i,j] = rliq_in[k,i,j]*1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g
+                        cicewp_in[k, i, j] = rice_in[k,i,j]*1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g
+                        if DV.values[ql_shift + ijk] + DV.values[qi_shift + ijk] > ql_threshold:
+                             cldfr_in[k,i,j] = 1.0                        
 
 
-        with nogil:
-            for k in xrange(nz_full):
-                for ip in xrange(n_pencils):
-                    play_in[ip,k] = self.p_full[k]/100.0
-                    o3vmr_in[ip, k] = self.o3vmr[k]
-                    co2vmr_in[ip, k] = self.co2vmr[k]
-                    ch4vmr_in[ip, k] = self.ch4vmr[k]
-                    n2ovmr_in[ip, k] = self.n2ovmr[k]
-                    o2vmr_in [ip, k] = self.o2vmr[k]
-                    cfc11vmr_in[ip, k] = self.cfc11vmr[k]
-                    cfc12vmr_in[ip, k] = self.cfc12vmr[k]
-                    cfc22vmr_in[ip, k] = self.cfc22vmr[k]
-                    ccl4vmr_in[ip, k] = self.ccl4vmr[k]
 
+                        if self.uniform_reliq: 
+                             reliq_in[k,i,j] = 14.0*cldfr_in[k,i,j]
+                        else: 
+                             reliq_in[k,i,j] = ((3.0*self.p_full[k]/Rd/tlay_in[k,i,j]*rliq_in[k,i,j]/
+                                                     fmax(cldfr_in[k,i,j],1.0e-6))/(4.0*pi*1.0e3*100.0))**(1.0/3.0)
+                             reliq_in[k,i,j] = fmin(fmax(reliq_in[k,i,j]*rv_to_reff, 2.5), 60.0)
+                             
+           k = 0 
+           for i in xrange(nx): 
+               ishift = i * istride 
+               for j in xrange(ny): 
+                   tlev_in[k,i,j] = Sur.T_surface 
+                   plev_in[k,i,j] = self.pi_full[0]/100.0 
 
-                    if self.uniform_reliq:
-                        reliq_in[ip, k] = 14.0*cldfr_in[ip,k]
-                    else:
-                        reliq_in[ip, k] = ((3.0*self.p_full[k]/Rd/tlay_in[ip,k]*rl_full[ip,k]/
-                        fmax(cldfr_in[ip,k],1.0e-6))/(4.0*pi*1.0e3*100.0))**(1.0/3.0)
-                        reliq_in[ip, k] = fmin(fmax(reliq_in[ip, k]*rv_to_reff, 2.5), 60.0)
-
-            for ip in xrange(n_pencils):
-                tlev_in[ip, 0] = Sur.T_surface
-                plev_in[ip,0] = self.pi_full[0]/100.0
-                for k in xrange(1,nz_full):
-                    tlev_in[ip, k] = 0.5*(tlay_in[ip,k-1]+tlay_in[ip,k])
-                    plev_in[ip,k] = self.pi_full[k]/100.0
-                tlev_in[ip, nz_full] = 2.0*tlay_in[ip,nz_full-1] - tlev_in[ip,nz_full-1]
-                plev_in[ip,nz_full] = self.pi_full[nz_full]/100.0
-
-
+           for k in xrange(1,nz_full): 
+                for i in xrange(nx): 
+                    ishift = i * istride
+                    for j in xrange(ny):
+                        tlev_in[k,i,j] = 0.5*(tlay_in[k,i,j]+tlay_in[k,i,j])
+                        plev_in[k,i,j] = self.pi_full[k]/100.0
+                        
+           k = nz_full 
+           for i in xrange(nx): 
+               ishift = i * istride 
+               for j in xrange(ny):             
+                   tlev_in[k,i,j] = 2.0 * tlay_in[k,i,j] - tlev_in[k,i,j]
+                   plev_in[k,i,j] = self.pi_full[nz_full]/100.0
+                               
+    
+#str bg_atm = "afglus_100m.dat"
         cdef:
-            int ncol = n_pencils
-            int nlay = nz_full
-            int icld = 1
-            int idrv = 0
-            int iaer = 0
-            int inflglw = 2
-            int iceflglw = 3
-            int liqflglw = 1
-            int inflgsw = 2
-            int iceflgsw = 3
-            int liqflgsw = 1
+            int nxp = nx
+            int nyp = ny
+            int nzp = nz
 
-        c_rrtmg_lw (
-&ncol    ,&nlay    ,&icld    ,&idrv,
-&play_in[0,0]    ,&plev_in[0,0]    ,&tlay_in[0,0]    ,&tlev_in[0,0]    ,&tsfc_in[0]    ,
-&h2ovmr_in[0,0]  ,&o3vmr_in[0,0]   ,&co2vmr_in[0,0]  ,&ch4vmr_in[0,0]  ,&n2ovmr_in[0,0]  ,&o2vmr_in[0,0],
-&cfc11vmr_in[0,0],&cfc12vmr_in[0,0],&cfc22vmr_in[0,0],&ccl4vmr_in[0,0] ,&emis_in[0,0]    ,
-&inflglw ,&iceflglw,&liqflglw,&cldfr_in[0,0]   ,
-&taucld_lw_in[0,0,0]  ,&cicewp_in[0,0]  ,&cliqwp_in[0,0]  ,&reice_in[0,0]   ,&reliq_in[0,0]   ,
-&tauaer_lw_in[0,0,0]  ,
-&uflx_lw_out[0,0]    ,&dflx_lw_out[0,0]    ,&hr_lw_out[0,0]      ,&uflxc_lw_out[0,0]   ,&dflxc_lw_out[0,0],  &hrc_lw_out[0,0],
-&duflx_dt_out[0,0],&duflxc_dt_out[0,0] )
+        print "Here, lw"
+        # lw
+        c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &edir_lw[0,0,0], &edn_lw[0,0,0], &eup_lw[0,0,0], &abso_lw[0,0,0], &plev_in[0,0,0], &tlev_in[0,0,0], &tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &rliq_in[0,0,0], &cicewp_in[0,0,0], &rice_in[0,0,0])
 
+        print "Here, sw"
 
-        c_rrtmg_sw (
-&ncol, &nlay, &icld, &iaer, &play_in[0,0], &plev_in[0,0], &tlay_in[0,0], &tlev_in[0,0],&tsfc_in[0],
-&h2ovmr_in[0,0], &o3vmr_in[0,0], &co2vmr_in[0,0], &ch4vmr_in[0,0], &n2ovmr_in[0,0],&o2vmr_in[0,0],
-&asdir_in[0]   ,&asdif_in[0]   ,&aldir_in[0]   ,&aldif_in[0]   ,
-&coszen_in[0]  ,&self.adjes   ,&self.dyofyr  ,&self.scon   ,
-&inflgsw ,&iceflgsw,&liqflgsw,&cldfr_in[0,0]   ,
-&taucld_sw_in[0,0,0]  ,&ssacld_sw_in[0,0,0]  ,&asmcld_sw_in[0,0,0]  ,&fsfcld_sw_in[0,0,0]  ,
-&cicewp_in[0,0]  ,&cliqwp_in[0,0]  ,&reice_in[0,0]   ,&reliq_in[0,0]   ,
-&tauaer_sw_in[0,0,0]  ,&ssaaer_sw_in[0,0,0]  ,&asmaer_sw_in[0,0,0]  ,&ecaer_sw_in[0,0,0]   ,
-&uflx_sw_out[0,0]    ,&dflx_sw_out[0,0]    ,&hr_sw_out[0,0]      ,&uflxc_sw_out[0,0]   ,&dflxc_sw_out[0,0], &hrc_sw_out[0,0])
+        # sw
+        c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &edir_sw[0,0,0], &edn_sw[0,0,0], &eup_sw[0,0,0], &abso_sw[0,0,0], &plev_in[0,0,0], &tlev_in[0,0,0], &tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &rliq_in[0,0,0], &cicewp_in[0,0,0], &rice_in[0,0,0])
 
-        cdef double [:,:] heating_rate_pencil = np.zeros((n_pencils,nz), dtype=np.double, order='c')
         cdef double srf_lw_up_local =0.0, srf_lw_down_local=0.0, srf_sw_up_local=0.0, srf_sw_down_local=0.0
-        cdef double nxny_i = 1.0/(Gr.dims.n[0]*Gr.dims.n[1])
-        with nogil:
-            for ip in xrange(n_pencils):
-                srf_lw_up_local   += uflx_lw_out[ip,0] * nxny_i
-                srf_lw_down_local += dflx_lw_out[ip,0] * nxny_i
-                srf_sw_up_local   +=  uflx_sw_out[ip,0] * nxny_i
-                srf_sw_down_local += dflx_sw_out[ip,0] * nxny_i
-                for k in xrange(nz):
-                    heating_rate_pencil[ip, k] = (hr_lw_out[ip,k] + hr_sw_out[ip,k]) * Ref.rho0_half_global[k+gw] * cpm_c(qv_pencil[ip,k])/86400.0
+        cdef nxny_i = 1.0/(nx*ny)
+
+#       with nogil:
+#            for ip in xrange(n_pencils):
+#                srf_lw_up_local   += eup_lw[ip,0,0] * nxny_i
+#                srf_lw_down_local += edir_lw[ip,0,0] * nxny_i
+#                srf_sw_up_local   +=  eup_sw[ip,0,0] * nxny_i
+#                srf_sw_down_local += edir_sw[ip,0,0] * nxny_i
 
         self.srf_lw_up = Pa.domain_scalar_sum(srf_lw_up_local)
         self.srf_lw_down = Pa.domain_scalar_sum(srf_lw_down_local)
@@ -1694,16 +1630,183 @@ cdef class RadiationTenstr(RadiationBase):
         self.srf_sw_down= Pa.domain_scalar_sum(srf_sw_down_local)
 
 
-        self.z_pencil.reverse_double(&Gr.dims, Pa, heating_rate_pencil, &self.heating_rate[0])
 
+#        import sys; sys.exit()
+
+#         Define input arrays for RRTM
+#         cdef:
+#             double [:,:] play_in = np.zeros((n_pencils,nz_full), dtype=np.double, order='F')
+#             double [:,:] plev_in = np.zeros((n_pencils,nz_full + 1), dtype=np.double, order='F')
+#             double [:,:] tlay_in = np.zeros((n_pencils,nz_full), dtype=np.double, order='F')
+#             double [:,:] tlev_in = np.zeros((n_pencils,nz_full + 1), dtype=np.double, order='F')
+#             double [:] tsfc_in = np.ones((n_pencils),dtype=np.double,order='F') * Sur.T_surface
+#             double [:,:] h2ovmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] o3vmr_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] co2vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] ch4vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] n2ovmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] o2vmr_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] cfc11vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] cfc12vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] cfc22vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] ccl4vmr_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] emis_in = np.ones((n_pencils,16),dtype=np.double,order='F') * 0.95
+#             double [:,:] cldfr_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] cicewp_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] cliqwp_in = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] reice_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:] reliq_in  = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:] coszen_in = np.ones((n_pencils),dtype=np.double,order='F') *self.coszen
+#             double [:] asdir_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adir
+#             double [:] asdif_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adif
+#             double [:] aldir_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adir
+#             double [:] aldif_in = np.ones((n_pencils),dtype=np.double,order='F') * self.adif
+#             double [:,:,:] taucld_lw_in  = np.zeros((16,n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:,:] tauaer_lw_in  = np.zeros((n_pencils,nz_full,16),dtype=np.double,order='F')
+#             double [:,:,:] taucld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:,:] ssacld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:,:] asmcld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:,:] fsfcld_sw_in  = np.zeros((14,n_pencils,nz_full),dtype=np.double,order='F')
+#             double [:,:,:] tauaer_sw_in  = np.zeros((n_pencils,nz_full,14),dtype=np.double,order='F')
+#             double [:,:,:] ssaaer_sw_in  = np.zeros((n_pencils,nz_full,14),dtype=np.double,order='F')
+#             double [:,:,:] asmaer_sw_in  = np.zeros((n_pencils,nz_full,14),dtype=np.double,order='F')
+#             double [:,:,:] ecaer_sw_in  = np.zeros((n_pencils,nz_full,6),dtype=np.double,order='F')
+# 
+#             Output
+#             double[:,:] uflx_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] dflx_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] hr_lw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double[:,:] uflxc_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] dflxc_lw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] hrc_lw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double[:,:] duflx_dt_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] duflxc_dt_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] uflx_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] dflx_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] hr_sw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+#             double[:,:] uflxc_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] dflxc_sw_out = np.zeros((n_pencils,nz_full +1),dtype=np.double,order='F')
+#             double[:,:] hrc_sw_out = np.zeros((n_pencils,nz_full),dtype=np.double,order='F')
+# 
+#             double rv_to_reff = np.exp(np.log(1.2)**2.0)*10.0*1000.0
+# 
+#         with nogil:
+#             for k in xrange(nz, nz_full):
+#                 for ip in xrange(n_pencils):
+#                     tlay_in[ip, k] = self.t_ext[k-nz]
+#                     h2ovmr_in[ip, k] = self.rv_ext[k-nz] * Rv/Rd * self.h2o_factor
+#                     Assuming for now that there is no condensate above LES domain!
+#             for k in xrange(nz):
+#                 for ip in xrange(n_pencils):
+#                     tlay_in[ip,k] = t_pencil[ip,k]
+#                     h2ovmr_in[ip,k] = qv_pencil[ip,k]/ (1.0 - qv_pencil[ip,k])* Rv/Rd * self.h2o_factor
+#                     rl_full[ip,k] = (ql_pencil[ip,k])/ (1.0 - qv_pencil[ip,k])
+#                     cliqwp_in[ip,k] = ((ql_pencil[ip,k])/ (1.0 - qv_pencil[ip,k])
+#                                        *1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g)
+#                     cicewp_in[ip,k] = ((qi_pencil[ip,k])/ (1.0 - qv_pencil[ip,k])
+#                                        *1.0e3*(self.pi_full[k] - self.pi_full[k+1])/g)
+#                     if ql_pencil[ip,k] + qi_pencil[ip,k] > ql_threshold:
+#                         cldfr_in[ip,k] = 1.0
+# 
+# 
+#         with nogil:
+#             for k in xrange(nz_full):
+#                 for ip in xrange(n_pencils):
+#                     play_in[ip,k] = self.p_full[k]/100.0
+#                     o3vmr_in[ip, k] = self.o3vmr[k]
+#                     co2vmr_in[ip, k] = self.co2vmr[k]
+#                     ch4vmr_in[ip, k] = self.ch4vmr[k]
+#                     n2ovmr_in[ip, k] = self.n2ovmr[k]
+#                     o2vmr_in [ip, k] = self.o2vmr[k]
+#                     cfc11vmr_in[ip, k] = self.cfc11vmr[k]
+#                     cfc12vmr_in[ip, k] = self.cfc12vmr[k]
+#                     cfc22vmr_in[ip, k] = self.cfc22vmr[k]
+#                     ccl4vmr_in[ip, k] = self.ccl4vmr[k]
+# 
+# 
+#                     if self.uniform_reliq:
+#                         reliq_in[ip, k] = 14.0*cldfr_in[ip,k]
+#                     else:
+#                         reliq_in[ip, k] = ((3.0*self.p_full[k]/Rd/tlay_in[ip,k]*rl_full[ip,k]/
+#                                                     fmax(cldfr_in[ip,k],1.0e-6))/(4.0*pi*1.0e3*100.0))**(1.0/3.0)
+#                         reliq_in[ip, k] = fmin(fmax(reliq_in[ip, k]*rv_to_reff, 2.5), 60.0)
+# 
+#             for ip in xrange(n_pencils):
+#                 tlev_in[ip, 0] = Sur.T_surface
+#                 plev_in[ip,0] = self.pi_full[0]/100.0
+#                 for k in xrange(1,nz_full):
+#                     tlev_in[ip, k] = 0.5*(tlay_in[ip,k-1]+tlay_in[ip,k])
+#                     plev_in[ip,k] = self.pi_full[k]/100.0
+#                 tlev_in[ip, nz_full] = 2.0*tlay_in[ip,nz_full-1] - tlev_in[ip,nz_full-1]
+#                 plev_in[ip,nz_full] = self.pi_full[nz_full]/100.0
+# 
+# 
+#         cdef:
+#             int ncol = n_pencils
+#             int nlay = nz_full
+#             int icld = 1
+#             int idrv = 0
+#             int iaer = 0
+#             int inflglw = 2
+#             int iceflglw = 3
+#             int liqflglw = 1
+#             int inflgsw = 2
+#             int iceflgsw = 3
+#             int liqflgsw = 1
+# 
+#         c_rrtmg_lw (
+#              &ncol    ,&nlay    ,&icld    ,&idrv,
+#              &play_in[0,0]    ,&plev_in[0,0]    ,&tlay_in[0,0]    ,&tlev_in[0,0]    ,&tsfc_in[0]    ,
+#              &h2ovmr_in[0,0]  ,&o3vmr_in[0,0]   ,&co2vmr_in[0,0]  ,&ch4vmr_in[0,0]  ,&n2ovmr_in[0,0]  ,&o2vmr_in[0,0],
+#              &cfc11vmr_in[0,0],&cfc12vmr_in[0,0],&cfc22vmr_in[0,0],&ccl4vmr_in[0,0] ,&emis_in[0,0]    ,
+#              &inflglw ,&iceflglw,&liqflglw,&cldfr_in[0,0]   ,
+#              &taucld_lw_in[0,0,0]  ,&cicewp_in[0,0]  ,&cliqwp_in[0,0]  ,&reice_in[0,0]   ,&reliq_in[0,0]   ,
+#              &tauaer_lw_in[0,0,0]  ,
+#              &uflx_lw_out[0,0]    ,&dflx_lw_out[0,0]    ,&hr_lw_out[0,0]      ,&uflxc_lw_out[0,0]   ,&dflxc_lw_out[0,0],  &hrc_lw_out[0,0],
+#              &duflx_dt_out[0,0],&duflxc_dt_out[0,0] )
+# 
+# 
+#         c_rrtmg_sw (
+#             &ncol, &nlay, &icld, &iaer, &play_in[0,0], &plev_in[0,0], &tlay_in[0,0], &tlev_in[0,0],&tsfc_in[0],
+#             &h2ovmr_in[0,0], &o3vmr_in[0,0], &co2vmr_in[0,0], &ch4vmr_in[0,0], &n2ovmr_in[0,0],&o2vmr_in[0,0],
+#              &asdir_in[0]   ,&asdif_in[0]   ,&aldir_in[0]   ,&aldif_in[0]   ,
+#              &coszen_in[0]  ,&self.adjes   ,&self.dyofyr  ,&self.scon   ,
+#              &inflgsw ,&iceflgsw,&liqflgsw,&cldfr_in[0,0]   ,
+#              &taucld_sw_in[0,0,0]  ,&ssacld_sw_in[0,0,0]  ,&asmcld_sw_in[0,0,0]  ,&fsfcld_sw_in[0,0,0]  ,
+#              &cicewp_in[0,0]  ,&cliqwp_in[0,0]  ,&reice_in[0,0]   ,&reliq_in[0,0]   ,
+#              &tauaer_sw_in[0,0,0]  ,&ssaaer_sw_in[0,0,0]  ,&asmaer_sw_in[0,0,0]  ,&ecaer_sw_in[0,0,0]   ,
+#              &uflx_sw_out[0,0]    ,&dflx_sw_out[0,0]    ,&hr_sw_out[0,0]      ,&uflxc_sw_out[0,0]   ,&dflxc_sw_out[0,0], &hrc_sw_out[0,0])
+# 
+#         cdef double [:,:] heating_rate_pencil = np.zeros((n_pencils,nz), dtype=np.double, order='c')
+#         cdef double srf_lw_up_local =0.0, srf_lw_down_local=0.0, srf_sw_up_local=0.0, srf_sw_down_local=0.0
+#         cdef double nxny_i = 1.0/(Gr.dims.n[0]*Gr.dims.n[1])
+#         with nogil:
+#            for ip in xrange(n_pencils):
+#                srf_lw_up_local   += uflx_lw_out[ip,0] * nxny_i
+#                srf_lw_down_local += dflx_lw_out[ip,0] * nxny_i
+#                srf_sw_up_local   +=  uflx_sw_out[ip,0] * nxny_i
+#                srf_sw_down_local += dflx_sw_out[ip,0] * nxny_i
+#                for k in xrange(nz):
+#                    heating_rate_pencil[ip, k] = (hr_lw_out[ip,k] + hr_sw_out[ip,k]) * Ref.rho0_half_global[k+gw] * cpm_c(qv_pencil[ip,k])/86400.0
+# 
+#         self.srf_lw_up = Pa.domain_scalar_sum(srf_lw_up_local)
+#         self.srf_lw_down = Pa.domain_scalar_sum(srf_lw_down_local)
+#         self.srf_sw_up= Pa.domain_scalar_sum(srf_sw_up_local)
+#         self.srf_sw_down= Pa.domain_scalar_sum(srf_sw_down_local)
+# 
+# 
+#         self.z_pencil.reverse_double(&Gr.dims, Pa, heating_rate_pencil, &self.heating_rate[0])
 
 
         return
-    cpdef stats_io(self, Grid.Grid Gr,  DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
-        RadiationBase.stats_io(self, Gr, DV, NS,  Pa)
 
+    cpdef stats_io(self, Grid.Grid Gr, ReferenceState.ReferenceState Ref, DiagnosticVariables.DiagnosticVariables DV, NetCDFIO_Stats NS, ParallelMPI.ParallelMPI Pa):
+
+        RadiationBase.stats_io(self, Gr, Ref, DV, NS,  Pa)
 
 
         return
 
-'''
+
+
+
