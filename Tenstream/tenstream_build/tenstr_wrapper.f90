@@ -18,10 +18,8 @@ contains
                    edir,edn,eup,abso,                              &
                    d_plev, d_tlev, d_tlay, d_h2ovmr, d_o3vmr,      &
                    d_co2vmr, d_ch4vmr, d_n2ovmr,  d_o2vmr,         &
-                   d_lwc, d_reliq, d_iwc, d_reice,                 &
-                   nxproc, nyproc, icollapse,                      &
-                   opt_time, solar_albedo_2d) bind(c)
-
+                   d_lwc, d_reliq, d_iwc, d_reice) bind(c)
+           
           integer(c_int), value :: comm      ! MPI Comunicator
           integer(c_int), intent(in) :: nxp, nyp, nzp
           real(c_double), intent(in) :: dx, dy   ! horizontal grid spacing in [m]
@@ -32,11 +30,11 @@ contains
           ! z(km)  p(hPa)  T(K)  air(cm-3)  o3(cm-3) o2(cm-3) h2o(cm-3)  co2(cm-3)
           ! no2(cm-3)
           character(kind =c_char), intent(in) :: atm_filename
-
+          
           ! Compute solar or thermal radiative transfer. Or compute both at
           ! once.
           logical, intent(in) :: lsolar, lthermal
-
+          
           ! dim(nlay_dynamics+1, nxp, nyp)
           real(c_double),intent(in) :: d_plev(nzp+1,nxp,nyp) ! pressure on layer interfaces [hPa]
           real(c_double),intent(in) :: d_tlev(nzp+1,nxp,nyp) ! Temperature on layer interfaces [K]
@@ -57,13 +55,6 @@ contains
           ! nxproc dimension of nxproc is number of ranks along x-axis, and entries in nxproc are the size of local Nx
           ! nyproc dimension of nyproc is number of ranks along y-axis, and entries in nyproc are the number of local Ny
           ! if not present, we let petsc decide how to decompose the fields(probably does not fit the decomposition of a host model)
-          integer(c_int),intent(in),optional :: nxproc(nxp), nyproc(nyp)
-
-          integer(c_int),intent(in),optional :: icollapse ! experimental, dont use it if you dont know what you are doing.
-
-          ! opt_time is the model time in seconds. If provided we will track the error growth of the solutions and compute new solutions only after threshold estimate is exceeded.
-          ! If solar_albedo_2d is present, we use a 2D surface albedo
-          real(c_float), optional, intent(in) :: opt_time, solar_albedo_2d(nxp,nyp)
 
 
           ! ------ Output ------
@@ -77,17 +68,19 @@ contains
           real(c_double), dimension(nzp,nxp,nyp), intent(out) :: edir,edn,eup
           real(c_double), dimension(nzp-1,nxp,nyp), intent(out) :: abso
 
+          print *, "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar  
+          
           call tenstream_rrtmg &
                   (comm, dx, dy, phi0, theta0,                     &
+         !          albedo_thermal, albedo_solar, 'afglus_100m.dat',     &
                    albedo_thermal, albedo_solar, atm_filename,     &
                    lthermal, lsolar,                               &
                    edir,edn,eup,abso,                              &
                    d_plev, d_tlev, d_tlay, d_h2ovmr, d_o3vmr,      &
                    d_co2vmr, d_ch4vmr, d_n2ovmr,  d_o2vmr,         &
-                   d_lwc, d_reliq, d_iwc, d_reice,                 &
-                   nxproc, nyproc, icollapse,                      &
-                   opt_time, solar_albedo_2d)
-
+                   d_lwc, d_reliq, d_iwc, d_reice)
+          
+          print *, "Here"
 
       end subroutine c_tenstr
         
