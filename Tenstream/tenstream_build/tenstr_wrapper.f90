@@ -67,13 +67,17 @@ contains
           !   abso(ubound(abso,1)-nlay_dynamics+1 : ubound(abso,1) )
           real(c_double), dimension(nzp,nxp,nyp), intent(out) :: edir,edn,eup
           real(c_double), dimension(nzp-1,nxp,nyp), intent(out) :: abso
+          
+          !character(len=250),parameter :: bg_file='afglus_100m.dat'
 
-          print *, "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar  
+          write (*,*), "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar  
+          !print *, "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar  
           
           call tenstream_rrtmg &
                   (comm, dx, dy, phi0, theta0,                     &
-         !          albedo_thermal, albedo_solar, 'afglus_100m.dat',     &
-                   albedo_thermal, albedo_solar, atm_filename,     &
+                   albedo_thermal, albedo_solar, 'afglus_100m.dat',     &
+         !          albedo_thermal, albedo_solar, atm_filename,     &
+         !          albedo_thermal, albedo_solar, bg_file,     &
                    lthermal, lsolar,                               &
                    edir,edn,eup,abso,                              &
                    d_plev, d_tlev, d_tlay, d_h2ovmr, d_o3vmr,      &

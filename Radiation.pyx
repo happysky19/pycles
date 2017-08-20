@@ -1003,8 +1003,8 @@ cdef class RadiationRRTM(RadiationBase):
 
 
 cdef extern:
-    void c_tenstr (MPI_Comm *comm, int *nxp, int *nyp, int *nzp, double *dx, double *dy, double *phi0, double *theta0, double *albedo_thermal, double *albedo_solar, char *atm_filename, bint *lthermal, bint *lsolar, double *edir,double *edn,double *eup,double *abso, double *d_plev, double *d_tlev, double *d_tlay, double *d_h2ovmr, double *d_o3vmr,
-double *d_co2vmr, double *d_ch4vmr, double *d_n2ovmr,  double *d_o2vmr, double *d_lwc, double *d_reliq, double *d_iwc, double *d_reice)
+    #void c_tenstr (MPI_Comm *comm, int *nxp, int *nyp, int *nzp, double *dx, double *dy, double *phi0, double *theta0, double *albedo_thermal, double *albedo_solar, char atm_filename, bint *lthermal, bint *lsolar, double *edir,double *edn,double *eup,double *abso, double *d_plev, double *d_tlev, double *d_tlay, double *d_h2ovmr, double *d_o3vmr, double *d_co2vmr, double *d_ch4vmr, double *d_n2ovmr,  double *d_o2vmr, double *d_lwc, double *d_reliq, double *d_iwc, double *d_reice)
+    void c_tenstr (MPI_Comm *comm, int *nxp, int *nyp, int *nzp, double *dx, double *dy, double *phi0, double *theta0, double *albedo_thermal, double *albedo_solar, char *atm_filename, bint *lthermal, bint *lsolar, double *edir,double *edn,double *eup,double *abso, double *d_plev, double *d_tlev, double *d_tlay, double *d_h2ovmr, double *d_o3vmr, double *d_co2vmr, double *d_ch4vmr, double *d_n2ovmr,  double *d_o2vmr, double *d_lwc, double *d_reliq, double *d_iwc, double *d_reice)
 #void c_tenstr (int *comm, int *nxp, int *nyp, int *nzp, double *dx, double *dy, double *phi0, double *theta0, double *albedo_thermal, double *albedo_solar, char *atm_filename, bint *lthermal, bint *lsolar, double *edir,double *edn,double *eup,double *abso, double *d_plev, double *d_tlev, double *d_tlay, double *d_h2ovmr, double *d_o3vmr,
 #    double *d_co2vmr, double *d_ch4vmr, double *d_n2ovmr,  double *d_o2vmr, double *d_lwc, double *d_reliq, double *d_iwc, double *d_reice, int *nxproc, int *nyproc, int *icollapse, double *opt_time, double *solar_albedo_2d)
     #In pass &Pa.comm_world
@@ -1445,10 +1445,17 @@ cdef class RadiationTenstream(RadiationBase):
             double theta0 = 60.
 
             #lw, sw flag
-            bint lthermal_lw = True
-            bint lsolar_lw   = False
-            bint lthermal_sw = False
-            bint lsolar_sw   = True
+            #bint lthermal_lw = True
+            #bint lsolar_lw   = False
+            #bint lthermal_sw = False
+            #bint lsolar_sw   = True
+            
+
+            bint lthermal_lw = 1
+            bint lsolar_lw   = 0
+            bint lthermal_sw = 0
+            bint lsolar_sw   = 1
+            
 
             Py_ssize_t nz_full = self.n_ext + nz
             Py_ssize_t n_pencils = self.z_pencil.n_local_pencils
@@ -1605,7 +1612,7 @@ cdef class RadiationTenstream(RadiationBase):
             int nyp = ny
             int nzp = nz
 
-        print "Here, lw"
+        print "Here, lw",
         # lw
         c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &edir_lw[0,0,0], &edn_lw[0,0,0], &eup_lw[0,0,0], &abso_lw[0,0,0], &plev_in[0,0,0], &tlev_in[0,0,0], &tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &rliq_in[0,0,0], &cicewp_in[0,0,0], &rice_in[0,0,0])
 
