@@ -85,8 +85,8 @@ contains
 
           call tenstream_rrtmg &
                   (comm, dx, dy, phi0, theta0,                     &
-                   !albedo_thermal, albedo_solar, 'afglus_100m.dat',     &
-                   albedo_thermal, albedo_solar, atm_filename,     &
+                   albedo_thermal, albedo_solar, 'afglus_100m.dat',     &
+                   !albedo_thermal, albedo_solar, atm_filename,     &
          !          albedo_thermal, albedo_solar, bg_file,     &
                    lthermal, lsolar,                               &
                    edir,edn,eup,abso,                              &
