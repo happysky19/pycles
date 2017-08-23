@@ -1,6 +1,8 @@
 ! refer to Fabian's tents_rrtmg.f90
 module tenstr_wrapper
 
+      use m_data_parameters, only : init_mpi_data_parameters, iintegers, ireals, mpiint, zero, one
+
       use iso_c_binding
 
       use m_tenstr_rrtmg, only : tenstream_rrtmg
@@ -12,16 +14,17 @@ module tenstr_wrapper
 contains
       
       subroutine c_tenstr &
-                  (comm, nxp, nyp, nzp, dx, dy, phi0, theta0,      &
+                  (comm, nxp, nyp, nzp, nz_full, dx, dy, phi0, theta0,      &
                    albedo_thermal, albedo_solar, atm_filename,     &
                    lthermal, lsolar,                               &
                    edir,edn,eup,abso,                              &
                    d_plev, d_tlev, d_tlay, d_h2ovmr, d_o3vmr,      &
                    d_co2vmr, d_ch4vmr, d_n2ovmr,  d_o2vmr,         &
-                   d_lwc, d_reliq, d_iwc, d_reice) bind(c)
-           
-          integer(c_int), value :: comm      ! MPI Comunicator
-          integer(c_int), intent(in) :: nxp, nyp, nzp
+                   d_lwc, d_reliq, d_iwc, d_reice, nxproc, nyproc, &
+                   opt_time ) bind(c)
+ 
+          integer(mpiint), value :: comm      ! MPI Comunicator
+          integer(c_int), intent(in) :: nxp, nyp, nzp, nz_full
           real(c_double), intent(in) :: dx, dy   ! horizontal grid spacing in [m]
           real(c_double), intent(in) :: phi0, theta0 ! Sun's angles, azimuth phi(0=North, 90=East), zenith(0 high sun, 80=low sun)
           real(c_double), intent(in) :: albedo_solar, albedo_thermal ! broadband ground albedo for solar and thermal spectrum
@@ -55,7 +58,7 @@ contains
           ! nxproc dimension of nxproc is number of ranks along x-axis, and entries in nxproc are the size of local Nx
           ! nyproc dimension of nyproc is number of ranks along y-axis, and entries in nyproc are the number of local Ny
           ! if not present, we let petsc decide how to decompose the fields(probably does not fit the decomposition of a host model)
-
+          integer(c_int),intent(in),optional :: nxproc(1), nyproc(1)
 
           ! ------ Output ------
           ! Fluxes and absorption in [W/m2] and [W/m3] respectively.
@@ -65,24 +68,33 @@ contains
           !   edn(ubound(edn,1)-nlay_dynamics : ubound(edn,1) )
           ! or:
           !   abso(ubound(abso,1)-nlay_dynamics+1 : ubound(abso,1) )
-          real(c_double), dimension(nzp,nxp,nyp), intent(out) :: edir,edn,eup
-          real(c_double), dimension(nzp-1,nxp,nyp), intent(out) :: abso
+          real(c_double), dimension(nz_full,nxp,nyp), intent(out) :: edir,edn,eup
+          real(c_double), dimension(nz_full-1,nxp,nyp), intent(out) :: abso
+          !real(c_double), dimension(nzp,nxp,nyp), intent(out) :: edir,edn,eup
+          !real(c_double), dimension(nzp-1,nxp,nyp), intent(out) :: abso
           
           !character(len=250),parameter :: bg_file='afglus_100m.dat'
+          real(c_double), optional, intent(in) :: opt_time
 
-          write (*,*), "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar  
+          write (*,*), "Here"
+          write (*,*), nxp, nyp, nzp
+          write (*,*), "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar, nxproc, &
+          nyproc, opt_time 
           !print *, "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar  
           
+
           call tenstream_rrtmg &
                   (comm, dx, dy, phi0, theta0,                     &
-                   albedo_thermal, albedo_solar, 'afglus_100m.dat',     &
-         !          albedo_thermal, albedo_solar, atm_filename,     &
+                   !albedo_thermal, albedo_solar, 'afglus_100m.dat',     &
+                   albedo_thermal, albedo_solar, atm_filename,     &
          !          albedo_thermal, albedo_solar, bg_file,     &
                    lthermal, lsolar,                               &
                    edir,edn,eup,abso,                              &
                    d_plev, d_tlev, d_tlay, d_h2ovmr, d_o3vmr,      &
                    d_co2vmr, d_ch4vmr, d_n2ovmr,  d_o2vmr,         &
-                   d_lwc, d_reliq, d_iwc, d_reice)
+                   d_lwc, d_reliq, d_iwc, d_reice,                 &
+                   nxproc = nxproc, nyproc = nyproc,               & 
+                   opt_time = opt_time)
           
           print *, "Here"
 
