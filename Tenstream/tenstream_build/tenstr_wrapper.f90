@@ -81,6 +81,7 @@ contains
           !character(len=*),parameter :: bg_file='afglus_100m.dat'
           real(c_double), optional, intent(in) :: opt_time
 
+          !call init_mpi_data_parameters(comm)
           write (*,*), "Here"
           write (*,*), nxp, nyp, nzp
      
