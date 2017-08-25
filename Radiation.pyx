@@ -1452,8 +1452,8 @@ cdef class RadiationTenstream(RadiationBase):
             bint lthermal_sw = False
             bint lsolar_sw   = True
 
-            Py_ssize_t nz_full = self.n_ext + nz
-            #Py_ssize_t nz_full = nz
+            #Py_ssize_t nz_full = self.n_ext + nz
+            Py_ssize_t nz_full = nz
             #thl
 
 
@@ -1590,21 +1590,26 @@ cdef class RadiationTenstream(RadiationBase):
            for i in xrange(nx): 
                ishift = i * istride 
                for j in xrange(ny): 
-                   tlev_in[k,i,j] = Sur.T_surface 
+                   tlev_in[k,i,j] = 298.1
+                   #tlev_in[k,i,j] = Sur.T_surface 
                    plev_in[k,i,j] = self.pi_full[0]/100.0 
 
            for k in xrange(1,nz_full): 
                 for i in xrange(nx): 
                     ishift = i * istride
                     for j in xrange(ny):
-                        tlev_in[k,i,j] = 0.5*(tlay_in[k,i,j]+tlay_in[k,i,j])
+                        #tlev_in[k,i,j] = 0.5*(tlay_in[k,i,j]+tlay_in[k-1,i,j])
+                        #thl
+                        tlev_in[k,i,j] = 2.0 * tlay_in[k-1,i,j] - tlev_in[k-1,i,j]
+                        if tlev_in[k,i,j] <180.: 
+                           tlev_in[k,i,j] = 180.1
                         plev_in[k,i,j] = self.pi_full[k]/100.0
                         
            k = nz_full 
            for i in xrange(nx): 
                ishift = i * istride 
                for j in xrange(ny):             
-                   tlev_in[k,i,j] = 2.0 * tlay_in[k,i,j] - tlev_in[k,i,j]
+                   tlev_in[k,i,j] = 2.0 * tlay_in[k-1,i,j] - tlev_in[k-1,i,j]
                    plev_in[k,i,j] = self.pi_full[nz_full]/100.0
                                
 
@@ -1637,27 +1642,29 @@ cdef class RadiationTenstream(RadiationBase):
         cdef:
 
 #Layer variables
-            double [:,:,:] play  = play_in[0:nz,:,:]
-            double [:,:,:] tlay  = tlay_in[0:nz,:,:]
-            double [:,:,:] h2ovmr = h2ovmr_in[0:nz,:,:]
-            double [:,:,:] o3vmr = o3vmr_in[0:nz,:,:]
-            double [:,:,:] co2vmr = co2vmr_in[0:nz,:,:]
-            double [:,:,:] ch4vmr = ch4vmr_in[0:nz,:,:]
-            double [:,:,:] n2ovmr = n2ovmr_in[0:nz,:,:]
-            double [:,:,:] o2vmr = o2vmr_in[0:nz,:,:]
-            double [:,:,:] rliq =  rliq_in[0:nz,:,:]
-            double [:,:,:] rice =  rice_in[0:nz,:,:]
-            double [:,:,:] reliq = reliq_in[0:nz,:,:]
-            double [:,:,:] reice = reice_in[0:nz,:,:]
-            double [:,:,:] cicewp = cicewp_in[0:nz,:,:]
-            double [:,:,:] cliqwp = cliqwp_in[0:nz,:,:]
-            double [:,:,:] cldfr  = cldfr_in[0:nz,:,:]
+            double [:,:,:] c_play  = play_in[0:nz,:,:]
+            double [:,:,:] c_tlay  = tlay_in[0:nz,:,:]
+            double [:,:,:] c_h2ovmr = h2ovmr_in[0:nz,:,:]
+            double [:,:,:] c_o3vmr = o3vmr_in[0:nz,:,:]
+            double [:,:,:] c_co2vmr = co2vmr_in[0:nz,:,:]
+            double [:,:,:] c_ch4vmr = ch4vmr_in[0:nz,:,:]
+            double [:,:,:] c_n2ovmr = n2ovmr_in[0:nz,:,:]
+            double [:,:,:] c_o2vmr = o2vmr_in[0:nz,:,:]
+            double [:,:,:] c_rliq =  rliq_in[0:nz,:,:]
+            double [:,:,:] c_rice =  rice_in[0:nz,:,:]
+            double [:,:,:] c_reliq = reliq_in[0:nz,:,:]
+            double [:,:,:] c_reice = reice_in[0:nz,:,:]
+            double [:,:,:] c_cicewp = cicewp_in[0:nz,:,:]
+            double [:,:,:] c_cliqwp = cliqwp_in[0:nz,:,:]
+            double [:,:,:] c_cldfr  = cldfr_in[0:nz,:,:]
 
 #Level variables
-            double [:,:,:] tlev = tlev_in[0:nz+1,:,:]
-            double [:,:,:] plev = plev_in[0:nz+1,:,:]
+            double [:,:,:] c_tlev = tlev_in[0:nz+1,:,:]
+            double [:,:,:] c_plev = plev_in[0:nz+1,:,:]
        
-        print "shape: ", np.shape(play)
+        
+        print "shape: ", np.shape(c_play), np.shape(c_tlev),np.shape(c_tlay)
+        print "nx,ny,nz: ", nx, ny, nz, "nz_full:", nz_full
         print "Here, lw",
 
         comm_w = MPI.COMM_WORLD
@@ -1666,14 +1673,16 @@ cdef class RadiationTenstream(RadiationBase):
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &edir_lw[0,0,0], &edn_lw[0,0,0], &eup_lw[0,0,0], &abso_lw[0,0,0], &plev_in[0,0,0], &tlev_in[0,0,0], &tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &rliq_in[0,0,0], &cicewp_in[0,0,0], &rice_in[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &edir_lw[0,0,0], &edn_lw[0,0,0], &eup_lw[0,0,0], &abso_lw[0,0,0], &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
-        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
+        #c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
+        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &c_plev[0,0,0], &c_tlev[0,0,0],&c_tlay[0,0,0], &c_h2ovmr[0,0,0], &c_o3vmr[0,0,0], &c_co2vmr[0,0,0], &c_ch4vmr[0,0,0], &c_n2ovmr[0,0,0], &c_o2vmr[0,0,0], &c_cliqwp[0,0,0], &c_rliq[0,0,0], &c_cicewp[0,0,0], &c_rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
 
         print "Here, sw"
 
         # sw
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &edir_sw[0,0,0], &edn_sw[0,0,0], &eup_sw[0,0,0], &abso_sw[0,0,0], &plev_in[0,0,0], &tlev_in[0,0,0], &tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &rliq_in[0,0,0], &cicewp_in[0,0,0], &rice_in[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
-        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
+        #c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
+        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &c_plev[0,0,0], &c_tlev[0,0,0], &c_tlay[0,0,0], &c_h2ovmr[0,0,0], &c_o3vmr[0,0,0], &c_co2vmr[0,0,0], &c_ch4vmr[0,0,0], &c_n2ovmr[0,0,0], &c_o2vmr[0,0,0], &c_cliqwp[0,0,0], &c_rliq[0,0,0], &c_cicewp[0,0,0], &c_rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
 
         cdef double srf_lw_up_local =0.0, srf_lw_down_local=0.0, srf_sw_up_local=0.0, srf_sw_down_local=0.0
         cdef nxny_i = 1.0/(nx*ny)

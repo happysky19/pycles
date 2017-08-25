@@ -80,12 +80,14 @@ contains
     
           !character(len=*),parameter :: bg_file='afglus_100m.dat'
           real(c_double), optional, intent(in) :: opt_time
-
+           
+          call init_mpi_data_parameters(comm)
           !call init_mpi_data_parameters(comm)
           write (*,*), "Here"
           write (*,*), nxp, nyp, nzp
-     
-          write (*,*), "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar, nxproc
+          !write (*,*), d_tlay
+          !write (*,*), d_tlev 
+          !write (*,*), "Here",comm, dx, dy, phi0, theta0, albedo_thermal, albedo_solar, atm_filename, lthermal, lsolar, nxproc
           
 
           call tenstream_rrtmg (comm, real(dx, kind=ireals), real(dy,kind=ireals),      &
@@ -93,13 +95,14 @@ contains
                    real(albedo_thermal,kind=ireals), real(albedo_solar,kind=ireals),    &
                    'afglus_100m.dat',  lthermal, lsolar,                                &
                    edir_ir,edn_ir,eup_ir,abso_ir,                                       &
-                   real(d_plev,kind=ireals), real(d_tlev,kind=ireals),                  &
-                   real(d_tlay,kind=ireals), real(d_h2ovmr,kind=ireals),                &
-                   real(d_o3vmr,kind=ireals),                                           &
-                   real(d_co2vmr,kind=ireals), real(d_ch4vmr,kind=ireals),              &
-                   real(d_n2ovmr,kind=ireals),  real(d_o2vmr,kind=ireals),              &
-                   real(d_lwc,kind=ireals), real(d_reliq,kind=ireals),                  &
-                   real(d_iwc,kind=ireals), real(d_reice,kind=ireals),                  &
+                   d_plev=real(d_plev,kind=ireals), d_tlev=real(d_tlev,kind=ireals),                  &
+                   !d_h2ovmr = real(d_h2ovmr,kind=ireals),                &
+                   d_tlay=real(d_tlay,kind=ireals), d_h2ovmr = real(d_h2ovmr,kind=ireals),                &
+                   d_o3vmr=real(d_o3vmr,kind=ireals),                                           &
+                   d_co2vmr=real(d_co2vmr,kind=ireals), d_ch4vmr=real(d_ch4vmr,kind=ireals),              &
+                   d_n2ovmr=real(d_n2ovmr,kind=ireals),  d_o2vmr=real(d_o2vmr,kind=ireals),              &
+                   d_lwc=real(d_lwc,kind=ireals), d_reliq=real(d_reliq,kind=ireals),                  &
+                   d_iwc=real(d_iwc,kind=ireals), d_reice=real(d_reice,kind=ireals),                  &
                    nxproc = nxproc, nyproc = nyproc,               & 
                    opt_time = real(opt_time,kind=ireals))                   
 !real(phi0,kind=ireals), theta0,                     &
