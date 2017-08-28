@@ -99,7 +99,6 @@ contains
                    real(phi0,kind=ireals), real(theta0,kind=ireals),                    &
                    real(albedo_thermal,kind=ireals), real(albedo_solar,kind=ireals),    &
                    atm_filename,  lthermal, lsolar,                                &
-                   !'afglus_100m.dat',  lthermal, lsolar,                                &
                    edir_ir,edn_ir,eup_ir,abso_ir,                                       &
                    d_plev=real(d_plev,kind=ireals), d_tlev=real(d_tlev,kind=ireals),                  &
                    !d_h2ovmr = real(d_h2ovmr,kind=ireals),                &

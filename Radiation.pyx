@@ -1453,8 +1453,8 @@ cdef class RadiationTenstream(RadiationBase):
             bint lthermal_sw = False
             bint lsolar_sw   = True
 
-            #Py_ssize_t nz_full = self.n_ext + nz
-            Py_ssize_t nz_full = nz
+            Py_ssize_t nz_full = self.n_ext + nz
+            #Py_ssize_t nz_full = nz
             #thl
 
 
@@ -1604,7 +1604,7 @@ cdef class RadiationTenstream(RadiationBase):
                         #tlev_in[k,i,j] = 2.0 * tlay_in[k-1,i,j] - tlev_in[k-1,i,j]
                         tlev_in[k,i,j] = 2.0 * tlay_in[k-1,i,j] - tlev_in[k-1,i,j]
                         if tlev_in[k,i,j] <180.: 
-                           tlev_in[k,i,j] = 180.1
+                           tlev_in[k,i,j] = 180.01
                         plev_in[k,i,j] = self.pi_full[k]/100.0
                         
            k = nz_full 
@@ -1618,8 +1618,10 @@ cdef class RadiationTenstream(RadiationBase):
         #myid = Pa.rank
         numnodes = Pa.size
         #print "myid", myid, "numnodes", numnodes
-        N_ranks_y = int(np.sqrt(1.*numnodes))
-        N_ranks_x = numnodes // N_ranks_y
+        #N_ranks_y = int(np.sqrt(1.*numnodes))
+        #N_ranks_x = numnodes // N_ranks_y
+        N_ranks_y = numnodes
+        N_ranks_x = 1
         if N_ranks_x * N_ranks_y != numnodes:
              N_ranks_x = numnodes
              N_ranks_y = 1
@@ -1630,7 +1632,7 @@ cdef class RadiationTenstream(RadiationBase):
         cdef:
             int nxp = nx
             int nyp = ny
-            int nzp = nz
+            int nzp = nz_full
             int nzf = nz_full
             int Nrankx = N_ranks_x 
             int Nranky = N_ranks_y
@@ -1639,7 +1641,7 @@ cdef class RadiationTenstream(RadiationBase):
             int [:] nyproc = np.ones(N_ranks_y,dtype=np.int32) *ny
 
 
-            double opt_time = 0.1
+            double opt_time = 0.0
 
 
 
@@ -1667,19 +1669,22 @@ cdef class RadiationTenstream(RadiationBase):
             double [:,:,:] c_plev = plev_in[0:nz+1,:,:]
        
         
-        print "shape: ", np.shape(c_play), np.shape(c_tlev),np.shape(c_tlay)
+        print "shape: ", np.shape(play_in), np.shape(c_tlev),np.shape(c_tlay)
         print "nx,ny,nz: ", nx, ny, nz, "nz_full:", nz_full
         print "Here, lw",
         print "nprocx: ", Nrankx, Nranky  
      
         comm_w = MPI.COMM_WORLD
         fcomm  = comm_w.py2f()
+        myid = comm_w.Get_rank()
+        print "myid: ", myid
         # lw
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &edir_lw[0,0,0], &edn_lw[0,0,0], &eup_lw[0,0,0], &abso_lw[0,0,0], &plev_in[0,0,0], &tlev_in[0,0,0], &tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &rliq_in[0,0,0], &cicewp_in[0,0,0], &rice_in[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &edir_lw[0,0,0], &edn_lw[0,0,0], &eup_lw[0,0,0], &abso_lw[0,0,0], &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
-        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &c_plev[0,0,0], &c_tlev[0,0,0],&c_tlay[0,0,0], &c_h2ovmr[0,0,0], &c_o3vmr[0,0,0], &c_co2vmr[0,0,0], &c_ch4vmr[0,0,0], &c_n2ovmr[0,0,0], &c_o2vmr[0,0,0], &c_cliqwp[0,0,0], &c_rliq[0,0,0], &c_cicewp[0,0,0], &c_rice[0,0,0], &nxproc[0], &nyproc[0], &Nrankx, &Nranky, &opt_time)
+        #c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &c_plev[0,0,0], &c_tlev[0,0,0],&c_tlay[0,0,0], &c_h2ovmr[0,0,0], &c_o3vmr[0,0,0], &c_co2vmr[0,0,0], &c_ch4vmr[0,0,0], &c_n2ovmr[0,0,0], &c_o2vmr[0,0,0], &c_cliqwp[0,0,0], &c_rliq[0,0,0], &c_cicewp[0,0,0], &c_rice[0,0,0], &nxproc[0], &nyproc[0], &Nrankx, &Nranky, &opt_time)
+        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_lw, &lsolar_lw, &plev_in[0,0,0], &tlev_in[0,0,0],&tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &reliq_in[0,0,0], &cicewp_in[0,0,0], &reice_in[0,0,0], &nxproc[0], &nyproc[0], &Nrankx, &Nranky, &opt_time)
 
         print "Here, sw"
 
@@ -1687,7 +1692,8 @@ cdef class RadiationTenstream(RadiationBase):
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &edir_sw[0,0,0], &edn_sw[0,0,0], &eup_sw[0,0,0], &abso_sw[0,0,0], &plev_in[0,0,0], &tlev_in[0,0,0], &tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &rliq_in[0,0,0], &cicewp_in[0,0,0], &rice_in[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(&Pa.comm_world, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
         #c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &plev[0,0,0], &tlev[0,0,0], &tlay[0,0,0], &h2ovmr[0,0,0], &o3vmr[0,0,0], &co2vmr[0,0,0], &ch4vmr[0,0,0], &n2ovmr[0,0,0], &o2vmr[0,0,0], &cliqwp[0,0,0], &rliq[0,0,0], &cicewp[0,0,0], &rice[0,0,0], &nxproc[0], &nyproc[0], &opt_time)
-        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &c_plev[0,0,0], &c_tlev[0,0,0], &c_tlay[0,0,0], &c_h2ovmr[0,0,0], &c_o3vmr[0,0,0], &c_co2vmr[0,0,0], &c_ch4vmr[0,0,0], &c_n2ovmr[0,0,0], &c_o2vmr[0,0,0], &c_cliqwp[0,0,0], &c_rliq[0,0,0], &c_cicewp[0,0,0], &c_rice[0,0,0], &nxproc[0], &nyproc[0], &Nrankx, &Nranky,&opt_time)
+        #c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &c_plev[0,0,0], &c_tlev[0,0,0], &c_tlay[0,0,0], &c_h2ovmr[0,0,0], &c_o3vmr[0,0,0], &c_co2vmr[0,0,0], &c_ch4vmr[0,0,0], &c_n2ovmr[0,0,0], &c_o2vmr[0,0,0], &c_cliqwp[0,0,0], &c_rliq[0,0,0], &c_cicewp[0,0,0], &c_rice[0,0,0], &nxproc[0], &nyproc[0], &Nrankx, &Nranky,&opt_time)
+        c_tenstr(fcomm, &nxp, &nyp, &nzp, &nzf, &dx, &dy, &phi0, &theta0, &self.adif, &self.adir, "afglus_100m.dat", &lthermal_sw, &lsolar_sw, &plev_in[0,0,0], &tlev_in[0,0,0],&tlay_in[0,0,0], &h2ovmr_in[0,0,0], &o3vmr_in[0,0,0], &co2vmr_in[0,0,0], &ch4vmr_in[0,0,0], &n2ovmr_in[0,0,0], &o2vmr_in[0,0,0], &cliqwp_in[0,0,0], &reliq_in[0,0,0], &cicewp_in[0,0,0], &reice_in[0,0,0], &nxproc[0], &nyproc[0], &Nrankx, &Nranky, &opt_time)
 
         cdef double srf_lw_up_local =0.0, srf_lw_down_local=0.0, srf_sw_up_local=0.0, srf_sw_down_local=0.0
         cdef nxny_i = 1.0/(nx*ny)
